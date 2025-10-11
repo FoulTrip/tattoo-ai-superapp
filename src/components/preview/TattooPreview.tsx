@@ -34,30 +34,30 @@ function TattooOverlayGenerator() {
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 transition-colors">
             <div className="max-w-7xl mx-auto pt-5">
                 {/* Banner mejorado con más detalles */}
-                <div className={`mb-4 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 rounded-xl shadow-lg border border-gray-700/50 dark:border-gray-700 overflow-hidden transition-all ${showUploader ? 'mb-3' : 'mb-6'}`}>
+                <div className={`mb-4 bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all ${showUploader ? 'mb-3' : 'mb-6'}`}>
                     {/* Efecto de brillo sutil */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 dark:via-white/3 to-transparent pointer-events-none"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100/30 dark:via-white/3 to-transparent pointer-events-none"></div>
 
                     <div className="relative p-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 dark:bg-emerald-500 animate-pulse"></div>
-                                    <span className="text-xs font-medium text-emerald-400 dark:text-emerald-500 uppercase tracking-wider">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></div>
+                                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                                         Powered by AI
                                     </span>
                                 </div>
-                                <h1 className="text-2xl md:text-3xl font-bold text-white dark:text-gray-100 mb-2 tracking-tight">
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
                                     Previsualiza tu tatuaje
                                 </h1>
-                                <p className="text-gray-300 dark:text-gray-400 text-xs max-w-2xl leading-relaxed">
+                                <p className="text-gray-600 dark:text-gray-300 text-xs max-w-2xl leading-relaxed">
                                     IA que muestra cómo lucirá tu diseño en tu piel antes de tatuarte.
-                                    <span className="text-gray-400 dark:text-gray-500"> Sube tu foto, marca la zona y visualiza el resultado.</span>
+                                    <span className="text-gray-500 dark:text-gray-400"> Sube tu foto, marca la zona y visualiza el resultado.</span>
                                 </p>
                             </div>
                             <button
                                 onClick={() => setShowUploader(!showUploader)}
-                                className="px-5 py-2.5 bg-white/10 hover:bg-white/20 dark:bg-white/5 dark:hover:bg-white/10 backdrop-blur-sm text-white dark:text-gray-200 text-sm font-medium rounded-lg transition-all whitespace-nowrap border border-white/10 dark:border-white/5 hover:border-white/20 dark:hover:border-white/10 shadow-lg"
+                                className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-sm text-white dark:text-gray-200 text-sm font-medium rounded-lg transition-all whitespace-nowrap border border-gray-900 dark:border-white/10 hover:border-gray-700 dark:hover:border-white/20 shadow-lg"
                             >
                                 {showUploader ? (
                                     <span className="flex items-center gap-2">

@@ -53,27 +53,26 @@ export default function Navbar() {
 
     return (
         <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 transition-colors">
-            <div className="max-w-7xl mx-auto px-4">
+            <div className="max-w-7xl mx-auto px-4 relative">
                 <div className="flex items-center justify-between h-14">
                     {/* Logo */}
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3">
                         <a href="/" className="text-lg font-semibold text-gray-900 dark:text-white">
                             Tattoo
                         </a>
 
                         {/* Location - Desktop */}
-                        {!searchOpen && (
-                            <div className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-                                <MapPin className="w-4 h-4" />
-                                <span>Cali, Colombia</span>
-                            </div>
-                        )}
+                        <div className="hidden md:flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>Cali</span>
+                        </div>
                     </div>
 
-                    {/* Search Bar - Desktop */}
-                    <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
-                        {searchOpen ? (
-                            <div className="flex items-center w-full gap-2">
+                    {/* Search Bar Overlay - Center */}
+                    {searchOpen && (
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xl px-4 z-10">
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
                                 <input
                                     ref={searchInputRef}
                                     type="text"
@@ -81,38 +80,30 @@ export default function Navbar() {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                     placeholder="Buscar tatuajes, artistas..."
-                                    className="flex-1 px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 text-gray-900 dark:text-white"
+                                    className="w-full pl-12 pr-12 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-900 dark:border-gray-100 rounded-full focus:outline-none shadow-lg text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                                 />
                                 <button
-                                    type="button"
                                     onClick={() => {
                                         setSearchOpen(false);
                                         setSearchQuery('');
                                     }}
-                                    className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
-                        ) : (
-                            <button
-                                onClick={() => setSearchOpen(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-full"
-                            >
-                                <Search className="w-4 h-4" />
-                                <span>Buscar...</span>
-                            </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {/* Right Actions */}
-                    <div className="flex items-center gap-2">
-                        {/* Search Button - Mobile */}
+                    <div className="flex items-center gap-1">
+                        {/* Search Button */}
                         <button
                             onClick={() => setSearchOpen(!searchOpen)}
-                            className="md:hidden p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            aria-label="Search"
                         >
-                            {searchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                            <Search className="w-4 h-4" />
                         </button>
 
                         {/* Dark Mode Toggle */}
@@ -184,23 +175,6 @@ export default function Navbar() {
                         </button>
                     </div>
                 </div>
-
-                {/* Mobile Search Bar */}
-                {searchOpen && (
-                    <div className="md:hidden pb-3">
-                        <div className="flex items-center gap-2">
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                placeholder="Buscar tatuajes, artistas..."
-                                className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 text-gray-900 dark:text-white"
-                            />
-                        </div>
-                    </div>
-                )}
 
                 {/* Mobile Menu */}
                 {mobileMenuOpen && (
