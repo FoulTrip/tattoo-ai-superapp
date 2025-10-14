@@ -4,7 +4,6 @@ import TattooPreview from "@/components/preview/TattooPreview";
 export default function Home() {
   return (
     <>
-      <Navbar />
       <TattooPreview />
     </>
   );
