@@ -10,7 +10,7 @@ declare module "next-auth" {
       userType: UserType;
     } & DefaultSession["user"];
     accessToken: string;
-    userType: string;
+    userType: UserType;
   }
 
   interface User extends DefaultUser {

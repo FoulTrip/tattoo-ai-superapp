@@ -5,10 +5,12 @@ import RightActions from './RightActions';
 import MobileMenu from './MobileMenu';
 import LogoNavbar from './Logo';
 import SearchBar from './SearchBar';
+import { useSession } from 'next-auth/react';
 
 export default function Navbar() {
     const [searchOpen, setSearchOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const { data: session } = useSession();
 
     return (
         <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 transition-colors">
@@ -18,7 +20,7 @@ export default function Navbar() {
                     <LogoNavbar />
 
                     {/* Search Bar Overlay - Center */}
-                    {searchOpen && <SearchBar setSearchOpen={setSearchOpen} />}
+                    {searchOpen && session && <SearchBar setSearchOpen={setSearchOpen} />}
 
                     {/* Right Actions */}
                     <RightActions searchOpen={searchOpen} setSearchOpen={setSearchOpen} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />

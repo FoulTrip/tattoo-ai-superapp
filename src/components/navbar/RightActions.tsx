@@ -32,6 +32,8 @@ function RightActions({
         data: session
     } = useSession()
 
+    console.log(session)
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -46,13 +48,13 @@ function RightActions({
     return (
         <div className="flex items-center gap-1">
             {/* Search Button */}
-            <button
+            {session?.user && <button
                 onClick={() => setSearchOpen(!searchOpen)}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                 aria-label="Search"
             >
                 <Search className="w-4 h-4" />
-            </button>
+            </button>}
 
             {/* Dark Mode Toggle */}
             <button

@@ -35,7 +35,7 @@ export interface PreviewWebSocketReturn {
   isConnected: boolean;
   userId: string | null;
   socketId: string | null;
-  processImages: (files: string[]) => void;
+  processImages: (files: string[], styles?: string[], colors?: string[], description?: string) => void;
   ping: () => void;
   connect: () => void;
   disconnect: () => void;
@@ -166,7 +166,12 @@ export function usePreviewWebSocket({
   );
 
   // Función para procesar imágenes
-  const processImages = useCallback((files: string[]) => {
+  const processImages = useCallback((
+    files: string[],
+    styles?: string[],
+    colors?: string[],
+    description?: string,
+  ) => {
     if (!socketRef.current?.connected) {
       console.error('Not connected to server');
       return;
@@ -181,8 +186,8 @@ export function usePreviewWebSocket({
     console.log('Files count:', files.length);
     console.log('File 1 length:', files[0]?.length || 'undefined');
     console.log('File 2 length:', files[1]?.length || 'undefined');
-    console.log('Sending payload:', files);
-    socketRef.current.emit('process-images', files);
+    console.log('Sending payload:', { files, styles, colors, description });
+    socketRef.current.emit('process-images', { files, styles: styles || [], colors: colors || [], description });
     console.log('Images sent to server');
   }, []);
 

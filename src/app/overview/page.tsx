@@ -7,8 +7,12 @@ import RecentCard from '@/components/overview/RecentlyCard';
 import WhatsappBotCard from '@/components/overview/WhatsappBotCard';
 import MonthStatsCard from '@/components/overview/MonthCard';
 import FastAccess from '@/components/overview/FastAccess';
+import { useSession } from 'next-auth/react';
 
 export default function OverviewDashboard() {
+    const { data: session } = useSession();
+    const isTatuador = session?.userType === "TATUADOR";
+
     return (
         <>
             <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -17,10 +21,10 @@ export default function OverviewDashboard() {
                     <HeaderActions />
 
                     {/* Main Grid */}
-                    <div className="grid lg:grid-cols-12 gap-6">
+                    <div className={`grid gap-6 ${isTatuador ? 'lg:grid-cols-12' : 'grid-cols-1'}`}>
 
-                        {/* Left Column - 8 cols */}
-                        <div className="lg:col-span-8 space-y-6">
+                        {/* Left Column - 8 cols cuando hay derecha, 12 cuando no */}
+                        <div className={`space-y-6 ${isTatuador ? 'lg:col-span-8' : 'col-span-1'}`}>
 
                             {/* Revenue Cards */}
                             <RevenueCard />
@@ -33,16 +37,18 @@ export default function OverviewDashboard() {
                         </div>
 
                         {/* Right Column - 4 cols */}
-                        <div className="lg:col-span-4 space-y-6">
+                        {isTatuador && (
+                            <div className="lg:col-span-4 space-y-6">
 
-                            {/* WhatsApp Bot Card */}
-                            <WhatsappBotCard />
+                                {/* WhatsApp Bot Card */}
+                                <WhatsappBotCard />
 
-                            {/* Métricas Básicas */}
-                            <MonthStatsCard />
+                                {/* Métricas Básicas */}
+                                <MonthStatsCard />
 
-                            <FastAccess />
-                        </div>
+                                <FastAccess />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

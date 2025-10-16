@@ -36,7 +36,7 @@ interface UseImagePreviewReturn {
   error: Error | null;
 
   // Operaciones
-  processImages: (files: string[]) => Promise<void>;
+  processImages: (files: string[], styles: string[], colors: string[], description: string) => Promise<void>;
   cancelJob: (jobId: string) => void;
   clearHistory: () => void;
   getJobById: (jobId: string) => ProcessingJob | undefined;
@@ -198,7 +198,7 @@ export function useImagePreview({
 
   // Función para procesar imágenes
   const processImages = useCallback(
-    async (files: string[]) => {
+    async (files: string[], styles?: string[], colors?: string[], description?: string) => {
       if (!isConnected) {
         const err = new Error('Not connected to server');
         setError(err);
@@ -220,13 +220,16 @@ export function useImagePreview({
         progress: 0,
         startedAt: new Date(),
         files,
+        styles,
+        colors,
+        description
       };
 
       setJobs((prev) => [...prev, newJob]);
       setCurrentJobId(jobId);
 
       // Enviar a WebSocket
-      sendToWebSocket(files);
+      sendToWebSocket(files, styles, colors, description);
     },
     [isConnected, sendToWebSocket]
   );

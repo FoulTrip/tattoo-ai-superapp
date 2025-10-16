@@ -78,6 +78,9 @@ export interface ProcessingJob {
   startedAt: Date;
   completedAt?: Date;
   files?: string[]; // Base64 de los archivos enviados
+  styles?: string[];
+  colors?: string[];
+  description?: string
 }
 
 // Handlers de eventos WebSocket

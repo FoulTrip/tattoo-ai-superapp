@@ -1,7 +1,12 @@
 import { CheckCircle2, DollarSign, Users } from "lucide-react"
 import { stats } from "./data"
+import { useSession } from "next-auth/react"
 
 function MonthStatsCard() {
+    const { data: session } = useSession();
+
+    console.log(session?.userType);
+
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Resumen del Mes</h3>
@@ -13,7 +18,7 @@ function MonthStatsCard() {
                             <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Ganancias totales</p>
+                            {session?.userType == "TATUADOR" && <p className="text-xs text-gray-600 dark:text-gray-400">Ganancias totales</p>}
                             <p className="text-lg font-bold text-gray-900 dark:text-white">${(stats.monthRevenue / 1000000).toFixed(1)}M</p>
                         </div>
                     </div>

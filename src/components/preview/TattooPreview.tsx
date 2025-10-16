@@ -38,6 +38,9 @@ function TattooOverlayGenerator() {
     const [brushSize, setBrushSize] = useState(20);
     const [isErasing, setIsErasing] = useState(false);
     const [showUploader, setShowUploader] = useState(true);
+    const [styles, setStyles] = useState<string[]>([]);
+    const [colors, setColors] = useState<string[]>([]);
+    const [description, setDescription] = useState<string>('');
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const bodyInputRef = useRef<HTMLInputElement>(null);
@@ -182,7 +185,7 @@ function TattooOverlayGenerator() {
                 : tattooImage;
 
             // Enviar a procesar
-            await processImages([cleanBodyImage, cleanTattooImage]);
+            await processImages([cleanBodyImage, cleanTattooImage], styles || [], colors || [], description);
 
             console.log('📤 Imágenes enviadas al servidor');
         } catch (error) {
@@ -241,6 +244,83 @@ function TattooOverlayGenerator() {
 
                 {showUploader && (
                     <>
+                        {/* Description Section */}
+                        <div className="mb-4">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">3. Descripción del tatuaje</label>
+                            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                                <textarea
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Describe el tatuaje que quieres... (ej: Un dragón tribal minimalista en el brazo, con tonos azules y negros)"
+                                    className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+                                    rows={3}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Styles and Colors Section */}
+                        <div className="mb-4">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">4. Estilos y Colores</label>
+                            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estilos:</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ej: minimalista, geométrico..."
+                                            className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                    setStyles([...(styles || []), e.currentTarget.value.trim()]);
+                                                    e.currentTarget.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {styles.map((style, index) => (
+                                                <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
+                                                    {style}
+                                                    <button
+                                                        onClick={() => setStyles((styles || []).filter((_, i) => i !== index))}
+                                                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Colores:</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ej: negro, rojo..."
+                                            className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                    setColors([...(colors || []), e.currentTarget.value.trim()]);
+                                                    e.currentTarget.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {colors.map((color, index) => (
+                                                <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
+                                                    {color}
+                                                    <button
+                                                        onClick={() => setColors((colors || []).filter((_, i) => i !== index))}
+                                                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
                             {/* Column 1: Body Image */}
                             <div className="lg:col-span-1">
@@ -272,7 +352,7 @@ function TattooOverlayGenerator() {
 
                             {/* Column 3: Result */}
                             <div className="lg:col-span-1">
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">3. Resultado</label>
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">5. Resultado</label>
                                 {isProcessing && !displayImage ? (
                                     <div className="aspect-square bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center p-6">
                                         <div className="w-full max-w-xs">
@@ -344,6 +424,11 @@ function TattooOverlayGenerator() {
                                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 text-center">
                                     ⚠️ Esperando conexión con el servidor...
                                 </p>
+                            )}
+                            {((styles && styles.length > 0) || (colors && colors.length > 0)) && (
+                                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 text-center">
+                                    Estilos: {(styles || []).join(', ')} | Colores: {(colors || []).join(', ')}
+                                </div>
                             )}
                         </div>
                     </>
