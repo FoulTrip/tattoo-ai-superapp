@@ -47,6 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return {
               id: data.user.id,
               email: data.user.email,
+              userType: data.user.userType,
               accessToken: data.accessToken,
             };
 
@@ -97,17 +98,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       console.log("Session callback called with token:", !!token);
-      if (token) {
-        (session as any).email = token.email as string;
-        (session as any).accessToken = token.accessToken as string;
+      if (token && session.user) {
+        session.user.id = token.sub as string;
+        session.user.email = token.email as string;
+        session.accessToken = token.accessToken;
+        session.userType = token.userType;
       }
       return session;
     },
     async jwt({ token, user, trigger }) {
       console.log("JWT callback - trigger:", trigger);
       if (user) {
-        token.email = (user as any).email;
-        token.accessToken = (user as any).accessToken;
+        token.email = user.email;
+        token.userType = user.userType;
+        token.accessToken = user.accessToken;
       }
       return token;
     }

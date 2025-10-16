@@ -7,7 +7,7 @@ function RecentCard() {
             <div className="space-y-4">
                 {recentActivity.map((activity, index) => {
                     const IconComponent = activity.icon;
-                    const colorClasses = {
+                    const colorClasses: Record<string, string> = {
                         emerald: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
                         blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400',
                         purple: 'bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400'
@@ -15,7 +15,7 @@ function RecentCard() {
 
                     return (
                         <div key={index} className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl ${colorClasses[activity.color]}`}>
+                            <div className={`p-3 rounded-xl ${colorClasses[activity.color as keyof typeof colorClasses]}`}>
                                 <IconComponent className="w-5 h-5" />
                             </div>
                             <div className="flex-1">

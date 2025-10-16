@@ -1,6 +1,11 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useImagePreview } from "./useImagePreview";
 
 function UsePreviewTattoo() {
+    const { data: session } = useSession();
     const [bodyImage, setBodyImage] = useState<string | null>(null);
     const [tattooImage, setTattooImage] = useState<string | null>(null);
     const [editedBodyImage, setEditedBodyImage] = useState<string | null>(null);
@@ -8,12 +13,39 @@ function UsePreviewTattoo() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [brushSize, setBrushSize] = useState(20);
     const [isErasing, setIsErasing] = useState(false);
-    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [showUploader, setShowUploader] = useState(true);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const bodyInputRef = useRef<HTMLInputElement>(null);
     const tattooInputRef = useRef<HTMLInputElement>(null);
+
+    // Integración con WebSocket para procesamiento de imágenes
+    const {
+        processImages,
+        convertFileToBase64,
+        currentJob,
+        isProcessing,
+        isConnected,
+        error: wsError,
+    } = useImagePreview({
+        token: (session?.user as any)?.token || (session as any)?.accessToken || '',
+        enableWebSocket: !!((session?.user as any)?.token) || !!((session as any)?.accessToken),
+        onComplete: (result) => {
+            console.log('Processing completed:', result);
+        },
+        onError: (error) => {
+            console.error('❌ Processing error:', error);
+            alert(`Error al procesar las imágenes: ${error}`);
+        },
+    });
+
+    // Estado derivado del job actual - la imagen generada viene del resultado del job
+    const generatedImage = currentJob?.status === 'completed' && currentJob?.result
+        ? (currentJob.result.imageUrl ||
+           (currentJob.result.base64Image
+             ? `data:image/png;base64,${currentJob.result.base64Image}`
+             : null))
+        : null;
 
     useEffect(() => {
         if (showEditor && bodyImage && canvasRef.current) {
@@ -108,8 +140,40 @@ function UsePreviewTattoo() {
         setEditedBodyImage(null);
     };
 
-    const generateOverlay = () => {
-        console.log("Image generating with AI...")
+    const generateOverlay = async () => {
+        if (!bodyImage || !tattooImage) {
+            alert('Por favor, sube ambas imágenes primero');
+            return;
+        }
+
+        if (!isConnected) {
+            alert('No hay conexión con el servidor. Intenta de nuevo en un momento.');
+            return;
+        }
+
+        try {
+            console.log('🚀 Iniciando procesamiento de imágenes...');
+
+            // Usar la imagen editada si existe, sino la original
+            const bodyImageToUse = editedBodyImage || bodyImage;
+
+            // Extraer el base64 limpio (sin el prefijo data:image/...)
+            const cleanBodyImage = bodyImageToUse.includes(',')
+                ? bodyImageToUse.split(',')[1]
+                : bodyImageToUse;
+
+            const cleanTattooImage = tattooImage.includes(',')
+                ? tattooImage.split(',')[1]
+                : tattooImage;
+
+            // Enviar a procesar
+            await processImages([cleanBodyImage, cleanTattooImage]);
+
+            console.log('📤 Imágenes enviadas al servidor');
+        } catch (error) {
+            console.error('Error al generar visualización:', error);
+            alert('Error al procesar las imágenes. Por favor intenta de nuevo.');
+        }
     };
 
     return {
@@ -134,7 +198,12 @@ function UsePreviewTattoo() {
         startDrawing,
         draw,
         stopDrawing,
-        setEditedBodyImage
+        setEditedBodyImage,
+        // Nuevos retornos de WebSocket
+        isProcessing,
+        isConnected,
+        currentJob,
+        wsError,
     }
 }
 

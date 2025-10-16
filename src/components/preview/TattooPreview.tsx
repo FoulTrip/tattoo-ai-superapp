@@ -1,34 +1,195 @@
 "use client"
 
-import UsePreviewTattoo from '@/hooks/UsePreviewTattoo';
+import { useState, useRef, useEffect } from 'react';
+import { useImagePreview } from '@/hooks/useImagePreview';
 import { Upload, Pencil, X, Eraser, Download } from 'lucide-react';
 import ImageUploadBox from './ImageUploadBox';
 
 function TattooOverlayGenerator() {
     const {
-        bodyInputRef,
-        tattooInputRef,
-        editedBodyImage,
-        handleImageUpload,
-        showUploader,
-        setShowUploader,
-        showEditor,
-        bodyImage,
-        tattooImage,
-        generatedImage,
-        generateOverlay,
-        setShowEditor,
-        setIsErasing,
-        isErasing,
-        brushSize,
-        setBrushSize,
-        clearCanvas,
-        canvasRef,
-        startDrawing,
-        draw,
-        stopDrawing,
-        setEditedBodyImage,
-    } = UsePreviewTattoo();
+        processImages,
+        currentJob,
+        isProcessing,
+        isConnected,
+        error: wsError,
+        jobs,
+    } = useImagePreview({
+        token: '',
+        enableWebSocket: true,
+        onComplete: (result) => {
+            console.log('✅ Processing completed:', result);
+            console.log('   Result keys:', Object.keys(result));
+            console.log('   Result result_url:', result.result_url);
+            console.log('   Generated image URL:', result.result_url);
+            // Force re-render by updating a state
+            setBodyImage(bodyImage);
+        },
+        onError: (error) => {
+            console.error('❌ Processing error:', error);
+        },
+    });
+
+    // Estados locales para el componente
+    const [bodyImage, setBodyImage] = useState<string | null>(null);
+    const [tattooImage, setTattooImage] = useState<string | null>(null);
+    const [editedBodyImage, setEditedBodyImage] = useState<string | null>(null);
+    const [showEditor, setShowEditor] = useState(false);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [brushSize, setBrushSize] = useState(20);
+    const [isErasing, setIsErasing] = useState(false);
+    const [showUploader, setShowUploader] = useState(true);
+
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const bodyInputRef = useRef<HTMLInputElement>(null);
+    const tattooInputRef = useRef<HTMLInputElement>(null);
+
+    // Buscar cualquier job completado con resultado
+    const completedJob = jobs.find(job => job.status === 'completed' && job.result);
+    const displayImage = completedJob?.result
+        ? (completedJob.result.imageUrl ||
+            (completedJob.result.base64Image
+              ? `data:image/png;base64,${completedJob.result.base64Image}`
+              : null) ||
+            (typeof completedJob.result.result_url === 'string'
+              ? completedJob.result.result_url
+              : null))
+        : null;
+
+    // Debug logs - remove after fixing
+    console.log('🔍 All jobs:', jobs);
+    console.log('🔍 Current job status:', currentJob?.status);
+    console.log('🔍 Current job result:', currentJob?.result);
+    console.log('🔍 Display image:', displayImage);
+    console.log('🔍 Is processing:', isProcessing);
+
+    useEffect(() => {
+        if (showEditor && bodyImage && canvasRef.current) {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                if (editedBodyImage) {
+                    const editedImg = new Image();
+                    editedImg.onload = () => ctx.drawImage(editedImg, 0, 0);
+                    editedImg.src = editedBodyImage;
+                }
+            };
+            img.src = bodyImage;
+        }
+    }, [showEditor, bodyImage, editedBodyImage]);
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'body' | 'tattoo') => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event: ProgressEvent<FileReader>) => {
+                const result = event.target?.result as string;
+                if (type === 'body') {
+                    setBodyImage(result);
+                    setEditedBodyImage(null);
+                } else {
+                    setTattooImage(result);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        setIsDrawing(true);
+        draw(e);
+    };
+
+    const stopDrawing = () => {
+        setIsDrawing(false);
+        if (canvasRef.current) setEditedBodyImage(canvasRef.current.toDataURL());
+    };
+
+    const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        if (!isDrawing && e.type !== 'mousedown' && e.type !== 'touchstart') return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = ('touches' in e ? e.touches[0].clientX : e.clientX - rect.left) * (canvas.width / rect.width);
+        const y = ('touches' in e ? e.touches[0].clientY : e.clientY - rect.top) * (canvas.height / rect.height);
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = brushSize;
+        ctx.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+
+        if (!isErasing) {
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+        }
+
+        ctx.beginPath();
+        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+    };
+
+    const clearCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas || !bodyImage) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = bodyImage;
+        setEditedBodyImage(null);
+    };
+
+    const generateOverlay = async () => {
+        if (!bodyImage || !tattooImage) {
+            alert('Por favor, sube ambas imágenes primero');
+            return;
+        }
+
+        if (!isConnected) {
+            alert('No hay conexión con el servidor. Intenta de nuevo en un momento.');
+            return;
+        }
+
+        try {
+            console.log('🚀 Iniciando procesamiento de imágenes...');
+
+            // Usar la imagen editada si existe, sino la original
+            const bodyImageToUse = editedBodyImage || bodyImage;
+
+            // Extraer el base64 limpio (sin el prefijo data:image/...base64,)
+            const cleanBodyImage = bodyImageToUse.includes(',')
+                ? bodyImageToUse.split(',')[1]
+                : bodyImageToUse;
+
+            const cleanTattooImage = tattooImage.includes(',')
+                ? tattooImage.split(',')[1]
+                : tattooImage;
+
+            // Enviar a procesar
+            await processImages([cleanBodyImage, cleanTattooImage]);
+
+            console.log('📤 Imágenes enviadas al servidor');
+        } catch (error) {
+            console.error('Error al generar visualización:', error);
+            alert('Error al procesar las imágenes. Por favor intenta de nuevo.');
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 transition-colors">
@@ -42,9 +203,9 @@ function TattooOverlayGenerator() {
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></div>
-                                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                                        Powered by AI
+                                    <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-gray-400 dark:bg-gray-600'} ${isConnected ? 'animate-pulse' : ''}`}></div>
+                                    <span className={`text-xs font-medium uppercase tracking-wider ${isConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-500'}`}>
+                                        {isConnected ? 'Powered by AI' : 'Conectando...'}
                                     </span>
                                 </div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
@@ -54,6 +215,11 @@ function TattooOverlayGenerator() {
                                     IA que muestra cómo lucirá tu diseño en tu piel antes de tatuarte.
                                     <span className="text-gray-500 dark:text-gray-400"> Sube tu foto, marca la zona y visualiza el resultado.</span>
                                 </p>
+                                {wsError && (
+                                    <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-md inline-block">
+                                        ⚠️ {wsError.message}
+                                    </div>
+                                )}
                             </div>
                             <button
                                 onClick={() => setShowUploader(!showUploader)}
@@ -107,12 +273,42 @@ function TattooOverlayGenerator() {
                             {/* Column 3: Result */}
                             <div className="lg:col-span-1">
                                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">3. Resultado</label>
-                                {generatedImage ? (
+                                {isProcessing && !displayImage ? (
+                                    <div className="aspect-square bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center p-6">
+                                        <div className="w-full max-w-xs">
+                                            {/* Spinner animado */}
+                                            <div className="flex justify-center mb-4">
+                                                <div className="w-12 h-12 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white rounded-full animate-spin"></div>
+                                            </div>
+
+                                            {/* Barra de progreso */}
+                                            {currentJob && currentJob.progress > 0 && (
+                                                <div className="mb-3">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-xs text-gray-600 dark:text-gray-400">Procesando</span>
+                                                        <span className="text-xs font-medium text-gray-900 dark:text-white">{currentJob.progress}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                        <div
+                                                            className="bg-gray-900 dark:bg-white h-full transition-all duration-300 ease-out"
+                                                            style={{ width: `${currentJob.progress}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Mensaje de estado */}
+                                            <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                                                {currentJob?.message || 'Procesando tu visualización...'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : displayImage ? (
                                     <div className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden aspect-square">
                                         <div className="relative h-full">
-                                            <img src={generatedImage} alt="Result" className="w-full h-full object-contain" />
+                                            <img src={displayImage} alt="Result" className="w-full h-full object-contain" />
                                             <a
-                                                href={generatedImage}
+                                                href={displayImage}
                                                 download="tattoo-visualization.png"
                                                 className="absolute top-2 right-2 flex items-center gap-1 px-3 py-1 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800"
                                             >
@@ -132,11 +328,23 @@ function TattooOverlayGenerator() {
                         <div className="mt-4 grid place-content-center">
                             <button
                                 onClick={generateOverlay}
-                                disabled={!bodyImage || !tattooImage}
-                                className="px-8 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!bodyImage || !tattooImage || isProcessing || !isConnected}
+                                className="px-8 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                             >
-                                Generar Visualización
+                                {isProcessing ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <span>Procesando...</span>
+                                    </>
+                                ) : (
+                                    <span>Generar Visualización</span>
+                                )}
                             </button>
+                            {!isConnected && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 text-center">
+                                    ⚠️ Esperando conexión con el servidor...
+                                </p>
+                            )}
                         </div>
                     </>
                 )}
