@@ -2,8 +2,23 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useImagePreview } from '@/hooks/useImagePreview';
-import { Upload, Pencil, X, Eraser, Download, Image, Dice6 } from 'lucide-react';
-import ImageUploadBox from './ImageUploadBox';
+import { Upload, X, Download, Image, Dice6 } from 'lucide-react';
+
+// Importar Konva desde CDN
+const loadKonva = () => {
+    return new Promise((resolve, reject) => {
+        if (typeof window !== 'undefined' && (window as any).Konva) {
+            resolve((window as any).Konva);
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/konva@9/konva.min.js';
+        script.onload = () => resolve((window as any).Konva);
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+};
 
 function TattooOverlayGenerator() {
     const {
@@ -34,17 +49,62 @@ function TattooOverlayGenerator() {
     const [tattooImage, setTattooImage] = useState<string | null>(null);
     const [editedBodyImage, setEditedBodyImage] = useState<string | null>(null);
     const [showEditor, setShowEditor] = useState(false);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [brushSize, setBrushSize] = useState(20);
-    const [isErasing, setIsErasing] = useState(false);
     const [showUploader, setShowUploader] = useState(true);
     const [styles, setStyles] = useState<string[]>([]);
     const [colors, setColors] = useState<string[]>([]);
-    const [description, setDescription] = useState<string>('');
+    const [description, setDescription] = useState('');
     const [isRandomMode, setIsRandomMode] = useState(false);
-    const [randomPrompt, setRandomPrompt] = useState<string>('');
+    const [randomPrompt, setRandomPrompt] = useState('');
 
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    // Estados para el marcador de rectángulo
+    const [tattooWidth, setTattooWidth] = useState(100);
+    const [tattooHeight, setTattooHeight] = useState(100);
+
+    // Función para calcular el precio estimado
+    const calculatePrice = () => {
+        const widthCm = tattooWidth / 37.795;
+        const heightCm = tattooHeight / 37.795;
+        const maxDimension = Math.max(widthCm, heightCm);
+        
+        if (maxDimension <= 5) {
+            return {
+                category: "Pequeño",
+                description: "líneas simples, símbolos",
+                range: "$80 – $200 USD",
+                minPrice: 80,
+                maxPrice: 200
+            };
+        } else if (maxDimension <= 15) {
+            return {
+                category: "Mediano",
+                description: "detalles, sombreado, color básico",
+                range: "$200 – $500 USD",
+                minPrice: 200,
+                maxPrice: 500
+            };
+        } else if (maxDimension <= 50) {
+            return {
+                category: "Grande",
+                description: "realismo, color avanzado, custom",
+                range: "$500 – $1,500+ USD",
+                minPrice: 500,
+                maxPrice: 1500
+            };
+        } else {
+            return {
+                category: "Muy Grande",
+                description: "sleeve, backpiece, proyecto extenso",
+                range: "Desde $1,500+ USD",
+                minPrice: 1500,
+                maxPrice: null
+            };
+        }
+    };
+
+    const priceEstimate = calculatePrice();
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const stageRef = useRef<any>(null);
     const bodyInputRef = useRef<HTMLInputElement>(null);
     const tattooInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,97 +128,173 @@ function TattooOverlayGenerator() {
     console.log('🔍 Display image:', displayImage);
     console.log('🔍 Is processing:', isProcessing);
 
-    useEffect(() => {
-        if (showEditor && bodyImage && canvasRef.current) {
-            const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            const img = document.createElement('img');
-            img.onload = () => {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-
-                if (editedBodyImage) {
-                    const editedImg = document.createElement('img');
-                    editedImg.onload = () => ctx.drawImage(editedImg, 0, 0);
-                    editedImg.src = editedBodyImage;
-                }
-            };
-            img.src = bodyImage;
-        }
-    }, [showEditor, bodyImage, editedBodyImage]);
-
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'body' | 'tattoo') => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event: ProgressEvent<FileReader>) => {
-                const result = event.target?.result as string;
-                if (type === 'body') {
-                    setBodyImage(result);
-                    setEditedBodyImage(null);
-                } else {
-                    setTattooImage(result);
+            reader.onload = (event) => {
+                const result = event.target?.result;
+                if (typeof result === 'string') {
+                    if (type === 'body') {
+                        setBodyImage(result);
+                        setEditedBodyImage(null);
+                    } else {
+                        setTattooImage(result);
+                    }
                 }
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-        setIsDrawing(true);
-        draw(e);
-    };
+    // Inicializar Konva cuando se abre el editor
+    useEffect(() => {
+        if (!showEditor || !bodyImage || !containerRef.current) return;
 
-    const stopDrawing = () => {
-        setIsDrawing(false);
-        if (canvasRef.current) setEditedBodyImage(canvasRef.current.toDataURL());
-    };
+        let mounted = true;
 
-    const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-        if (!isDrawing && e.type !== 'mousedown' && e.type !== 'touchstart') return;
+        // Esperar un frame para asegurar que el DOM esté listo
+        requestAnimationFrame(() => {
+            loadKonva().then((Konva: any) => {
+                if (!mounted || !containerRef.current) return;
 
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+                // Limpiar stage anterior si existe
+                if (stageRef.current) {
+                    stageRef.current.destroy();
+                    stageRef.current = null;
+                }
 
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+                const img = new window.Image();
+                img.onload = () => {
+                    if (!mounted || !containerRef.current) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const x = ('touches' in e ? e.touches[0].clientX : e.clientX - rect.left) * (canvas.width / rect.width);
-        const y = ('touches' in e ? e.touches[0].clientY : e.clientY - rect.top) * (canvas.height / rect.height);
+                    // Obtener dimensiones del contenedor
+                    const containerWidth = containerRef.current.offsetWidth || 800;
+                    const maxHeight = 500;
+                    
+                    // Calcular escala para que la imagen quepa
+                    const scaleX = containerWidth / img.width;
+                    const scaleY = maxHeight / img.height;
+                    const scale = Math.min(scaleX, scaleY, 1);
+                    
+                    const scaledWidth = img.width * scale;
+                    const scaledHeight = img.height * scale;
 
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = brushSize;
-        ctx.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+                    console.log('Canvas dimensions:', { scaledWidth, scaledHeight, scale });
 
-        if (!isErasing) {
-            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-        }
+                    // Crear stage
+                    const stage = new Konva.Stage({
+                        container: containerRef.current,
+                        width: scaledWidth,
+                        height: scaledHeight,
+                    });
 
-        ctx.beginPath();
-        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-    };
+                    stageRef.current = stage;
 
-    const clearCanvas = () => {
-        const canvas = canvasRef.current;
-        if (!canvas || !bodyImage) return;
+                    // Capa de imagen
+                    const layer = new Konva.Layer();
+                    stage.add(layer);
 
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+                    // Agregar imagen de fondo
+                    const konvaImage = new Konva.Image({
+                        image: img,
+                        width: scaledWidth,
+                        height: scaledHeight,
+                    });
+                    layer.add(konvaImage);
 
-        const img = document.createElement('img');
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
+                    // Grupo para el rectángulo y texto
+                    const group = new Konva.Group({
+                        x: scaledWidth / 2,
+                        y: scaledHeight / 2,
+                        draggable: true,
+                    });
+
+                    // Rectángulo rojo
+                    const rect = new Konva.Rect({
+                        x: -tattooWidth * scale / 2,
+                        y: -tattooHeight * scale / 2,
+                        width: tattooWidth * scale,
+                        height: tattooHeight * scale,
+                        stroke: 'rgba(255, 0, 0, 0.8)',
+                        strokeWidth: 3,
+                    });
+
+                    // Marcador central
+                    const centerMarker = new Konva.Rect({
+                        x: -5,
+                        y: -5,
+                        width: 10,
+                        height: 10,
+                        fill: 'rgba(255, 0, 0, 0.6)',
+                    });
+
+                    // Texto de tamaño
+                    const sizeText = new Konva.Text({
+                        x: -50,
+                        y: -tattooHeight * scale / 2 - 25,
+                        text: `${(tattooWidth / 37.795).toFixed(1)}x${(tattooHeight / 37.795).toFixed(1)}cm`,
+                        fontSize: 14,
+                        fontStyle: 'bold',
+                        fill: 'rgba(255, 0, 0, 0.8)',
+                        width: 100,
+                        align: 'center',
+                    });
+
+                    group.add(rect);
+                    group.add(centerMarker);
+                    group.add(sizeText);
+                    layer.add(group);
+
+                    // Actualizar cuando cambia el tamaño
+                    const updateRect = (newWidth: number, newHeight: number) => {
+                        rect.x(-newWidth * scale / 2);
+                        rect.y(-newHeight * scale / 2);
+                        rect.width(newWidth * scale);
+                        rect.height(newHeight * scale);
+                        sizeText.y(-newHeight * scale / 2 - 25);
+                        sizeText.text(`${(newWidth / 37.795).toFixed(1)}x${(newHeight / 37.795).toFixed(1)}cm`);
+                        layer.batchDraw();
+                    };
+
+                    // Guardar función de actualización y la escala
+                    (stage as any).updateRect = updateRect;
+                    (stage as any).scale = scale;
+
+                    layer.draw();
+                };
+                
+                img.onerror = () => {
+                    console.error('Error loading image');
+                };
+                
+                img.src = bodyImage;
+            }).catch(error => {
+                console.error('Error loading Konva:', error);
+            });
+        });
+
+        return () => {
+            mounted = false;
+            if (stageRef.current) {
+                stageRef.current.destroy();
+                stageRef.current = null;
+            }
         };
-        img.src = bodyImage;
-        setEditedBodyImage(null);
+    }, [showEditor, bodyImage]);
+
+    // Actualizar rectángulo cuando cambian las dimensiones
+    useEffect(() => {
+        if (stageRef.current && (stageRef.current as any).updateRect) {
+            (stageRef.current as any).updateRect(tattooWidth, tattooHeight);
+        }
+    }, [tattooWidth, tattooHeight]);
+
+    const saveMarker = () => {
+        if (!stageRef.current) return;
+        const dataURL = stageRef.current.toDataURL();
+        setEditedBodyImage(dataURL);
+        setShowEditor(false);
     };
 
     const generateOverlay = async () => {
@@ -200,11 +336,8 @@ function TattooOverlayGenerator() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 transition-colors">
             <div className="max-w-7xl mx-auto pt-5">
-                {/* Banner mejorado con más detalles */}
+                {/* Banner */}
                 <div className={`mb-4 bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all ${showUploader ? 'mb-3' : 'mb-6'}`}>
-                    {/* Efecto de brillo sutil */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100/30 dark:via-white/3 to-transparent pointer-events-none"></div>
-
                     <div className="relative p-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
@@ -225,15 +358,7 @@ function TattooOverlayGenerator() {
                                 onClick={() => setShowUploader(!showUploader)}
                                 className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-sm text-white dark:text-gray-200 text-sm font-medium rounded-lg transition-all whitespace-nowrap border border-gray-900 dark:border-white/10 hover:border-gray-700 dark:hover:border-white/20 shadow-lg"
                             >
-                                {showUploader ? (
-                                    <span className="flex items-center gap-2">
-                                        Ocultar
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center gap-2">
-                                        Comenzar
-                                    </span>
-                                )}
+                                {showUploader ? 'Ocultar' : 'Comenzar'}
                             </button>
                         </div>
                     </div>
@@ -241,23 +366,20 @@ function TattooOverlayGenerator() {
 
                 {showUploader && (
                     <>
-                        {/* Description Section */}
+                        {/* Descripción */}
                         <div className="mb-4">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Descripción del tatuaje</label>
-                            <div className="">
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Describe el tatuaje que quieres... (ej: Un dragón tribal minimalista en el brazo, con tonos azules y negros)"
-                                    className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
-                                    rows={3}
-                                />
-                            </div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Detalles adicionales</label>
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Describe el tatuaje que quieres... (ej: Un dragón tribal minimalista en el brazo, con tonos azules y negros)"
+                                className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+                                rows={3}
+                            />
                         </div>
 
-                        {/* Styles and Colors Section */}
+                        {/* Estilos y Colores */}
                         <div className="mb-4">
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Estilos</label>
@@ -267,7 +389,7 @@ function TattooOverlayGenerator() {
                                         className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                setStyles([...(styles || []), e.currentTarget.value.trim()]);
+                                                setStyles([...styles, e.currentTarget.value.trim()]);
                                                 e.currentTarget.value = '';
                                             }
                                         }}
@@ -277,7 +399,7 @@ function TattooOverlayGenerator() {
                                             <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
                                                 {style}
                                                 <button
-                                                    onClick={() => setStyles((styles || []).filter((_, i) => i !== index))}
+                                                    onClick={() => setStyles(styles.filter((_, i) => i !== index))}
                                                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                 >
                                                     ×
@@ -295,7 +417,7 @@ function TattooOverlayGenerator() {
                                         className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                setColors([...(colors || []), e.currentTarget.value.trim()]);
+                                                setColors([...colors, e.currentTarget.value.trim()]);
                                                 e.currentTarget.value = '';
                                             }
                                         }}
@@ -305,7 +427,7 @@ function TattooOverlayGenerator() {
                                             <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
                                                 {color}
                                                 <button
-                                                    onClick={() => setColors((colors || []).filter((_, i) => i !== index))}
+                                                    onClick={() => setColors(colors.filter((_, i) => i !== index))}
                                                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                                                 >
                                                     ×
@@ -317,22 +439,51 @@ function TattooOverlayGenerator() {
                             </div>
                         </div>
 
+                        {/* Grid Principal */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300 min-h-[400px]">
-                            {/* Column 1: Body Image */}
+                            {/* Body Image */}
                             <div className="lg:col-span-1 flex flex-col">
-                                <ImageUploadBox
-                                    image={bodyImage}
-                                    type="body"
-                                    label="1. Foto del cuerpo"
-                                    bodyInputRef={bodyInputRef}
-                                    tattooInputRef={tattooInputRef}
-                                    editedBodyImage={editedBodyImage}
-                                    setShowEditor={setShowEditor}
-                                    handleImageUpload={handleImageUpload}
-                                />
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">1. Foto del cuerpo</label>
+                                <div className="flex-1 relative">
+                                    {(editedBodyImage || bodyImage) ? (
+                                        <div className="h-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden flex items-center justify-center">
+                                            <img src={editedBodyImage || bodyImage || ''} alt="Body" className="max-w-full max-h-full object-contain" />
+                                            <button
+                                                onClick={() => {
+                                                    setEditedBodyImage(null);
+                                                    bodyInputRef.current?.click();
+                                                }}
+                                                className="absolute top-2 right-2 px-2 py-1 bg-gray-900 text-white text-xs rounded hover:bg-gray-800"
+                                            >
+                                                Cambiar
+                                            </button>
+                                            <button
+                                                onClick={() => setShowEditor(true)}
+                                                className="absolute bottom-2 right-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                            >
+                                                Marcar zona
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => bodyInputRef.current?.click()}
+                                            className="h-full bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                                        >
+                                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-4">Sube tu foto</p>
+                                        </div>
+                                    )}
+                                    <input
+                                        ref={bodyInputRef}
+                                        type="file"
+                                        onChange={(e) => handleImageUpload(e, 'body')}
+                                        className="hidden"
+                                        accept="image/*"
+                                    />
+                                </div>
                             </div>
 
-                            {/* Column 2: Tattoo Image */}
+                            {/* Tattoo Image */}
                             <div className="lg:col-span-1 flex flex-col">
                                 <div className="mb-2 flex items-center justify-between">
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">2. Diseño del tatuaje</label>
@@ -367,36 +518,48 @@ function TattooOverlayGenerator() {
                                             <textarea
                                                 value={randomPrompt}
                                                 onChange={(e) => setRandomPrompt(e.target.value)}
-                                                placeholder="Describe cómo quieres que sea el diseño aleatorio... (ej: Un dragón tribal minimalista con tonos azules y negros)"
+                                                placeholder="Describe cómo quieres que sea el diseño aleatorio..."
                                                 className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
                                             />
-                                            <button
-                                                onClick={() => {
-                                                    // Aquí iría la lógica para generar el diseño aleatorio
-                                                    console.log('Generando diseño aleatorio con prompt:', randomPrompt);
-                                                }}
-                                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-sm text-white dark:text-gray-200 text-sm font-medium rounded-lg transition-all border border-gray-900 dark:border-white/10 hover:border-gray-700 dark:hover:border-white/20 shadow-lg"
-                                            >
+                                            <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white/10 dark:hover:bg-white/20 text-white dark:text-gray-200 text-sm font-medium rounded-lg transition-all border border-gray-900 dark:border-white/10 shadow-lg">
                                                 <Dice6 className="w-4 h-4" />
-                                                Generar Diseño Aleatorio
+                                                Generar Diseño
                                             </button>
                                         </div>
                                     ) : (
-                                        <ImageUploadBox
-                                            image={tattooImage}
-                                            type="tattoo"
-                                            label=""
-                                            bodyInputRef={bodyInputRef}
-                                            tattooInputRef={tattooInputRef}
-                                            editedBodyImage={editedBodyImage}
-                                            setShowEditor={setShowEditor}
-                                            handleImageUpload={handleImageUpload}
-                                        />
+                                        <div className="h-full relative">
+                                            {tattooImage ? (
+                                                <div className="h-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden flex items-center justify-center">
+                                                    <img src={tattooImage} alt="Tattoo" className="max-w-full max-h-full object-contain" />
+                                                    <button
+                                                        onClick={() => tattooInputRef.current?.click()}
+                                                        className="absolute top-2 right-2 px-2 py-1 bg-gray-900 text-white text-xs rounded hover:bg-gray-800"
+                                                    >
+                                                        Cambiar
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    onClick={() => tattooInputRef.current?.click()}
+                                                    className="h-full bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                >
+                                                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-4">Sube tu diseño</p>
+                                                </div>
+                                            )}
+                                            <input
+                                                ref={tattooInputRef}
+                                                type="file"
+                                                onChange={(e) => handleImageUpload(e, 'tattoo')}
+                                                className="hidden"
+                                                accept="image/*"
+                                            />
+                                        </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Column 3: Result */}
+                            {/* Result */}
                             <div className="lg:col-span-1 flex flex-col">
                                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">5. Resultado</label>
                                 <div className="flex-1">
@@ -482,61 +645,99 @@ function TattooOverlayGenerator() {
                     </>
                 )}
 
+                {/* Modal Editor */}
                 {showEditor && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
                             <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between">
                                 <h3 className="text-sm font-medium">Marcar zona del tatuaje</h3>
-                                <button onClick={() => setShowEditor(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <button
+                                    onClick={() => setShowEditor(false)}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                >
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
 
                             <div className="p-4">
-                                <div className="flex flex-wrap items-center gap-2 mb-3">
-                                    <button
-                                        onClick={() => setIsErasing(false)}
-                                        className={`px-3 py-1 rounded text-xs font-medium ${!isErasing ? 'bg-gray-900 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-                                    >
-                                        <Pencil className="w-3 h-3 inline mr-1" />Dibujar
-                                    </button>
-                                    <button
-                                        onClick={() => setIsErasing(true)}
-                                        className={`px-3 py-1 rounded text-xs font-medium ${isErasing ? 'bg-gray-900 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-                                    >
-                                        <Eraser className="w-3 h-3 inline mr-1" />Borrar
-                                    </button>
-                                    <div className="flex items-center gap-2 ml-auto">
-                                        <label className="text-xs">Tamaño:</label>
-                                        <input type="range" min="10" max="50" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-20" />
-                                        <span className="text-xs w-6">{brushSize}</span>
+                                {/* Controles */}
+                                <div className="mb-4 bg-gray-100 dark:bg-gray-700 p-4 rounded-lg space-y-4">
+                                    <div className="flex items-center gap-4 flex-wrap">
+                                        <div className="flex items-center gap-3">
+                                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Ancho:</label>
+                                            <input
+                                                type="range"
+                                                min="20"
+                                                max="7559"
+                                                value={tattooWidth}
+                                                onChange={(e) => setTattooWidth(Number(e.target.value))}
+                                                className="w-32"
+                                            />
+                                            <span className="text-xs font-medium text-gray-900 dark:text-white w-12">{(tattooWidth / 37.795).toFixed(1)}cm</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Alto:</label>
+                                            <input
+                                                type="range"
+                                                min="20"
+                                                max="7559"
+                                                value={tattooHeight}
+                                                onChange={(e) => setTattooHeight(Number(e.target.value))}
+                                                className="w-32"
+                                            />
+                                            <span className="text-xs font-medium text-gray-900 dark:text-white w-12">{(tattooHeight / 37.795).toFixed(1)}cm</span>
+                                        </div>
                                     </div>
-                                    <button onClick={clearCanvas} className="px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs rounded hover:bg-red-100 dark:hover:bg-red-900/30">
-                                        Limpiar
-                                    </button>
+                                    
+                                    {/* Estimación de precio */}
+                                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border-2 border-blue-200 dark:border-blue-900">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                                                        {priceEstimate.category}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        ({priceEstimate.description})
+                                                    </span>
+                                                </div>
+                                                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                                    {priceEstimate.range}
+                                                </div>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                                    💡 Precio estimado para {(tattooWidth / 37.795).toFixed(1)}x{(tattooHeight / 37.795).toFixed(1)} cm
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                                        Arrastra el rectángulo rojo para posicionarlo. Ajusta el tamaño con los deslizadores.
+                                    </p>
                                 </div>
 
-                                <div className="bg-gray-50 dark:bg-gray-900 rounded p-2 overflow-auto">
-                                    <canvas
-                                        ref={canvasRef}
-                                        onMouseDown={startDrawing}
-                                        onMouseMove={draw}
-                                        onMouseUp={stopDrawing}
-                                        onMouseLeave={stopDrawing}
-                                        onTouchStart={startDrawing}
-                                        onTouchMove={draw}
-                                        onTouchEnd={stopDrawing}
-                                        className="max-w-full cursor-crosshair"
-                                        style={{ touchAction: 'none' }}
+                                {/* Canvas con Konva */}
+                                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 overflow-auto flex justify-center">
+                                    <div 
+                                        ref={containerRef} 
+                                        className="border border-gray-300 dark:border-gray-600 rounded"
+                                        style={{ minWidth: '400px', minHeight: '400px' }}
                                     />
                                 </div>
 
-                                <div className="mt-3 flex gap-2 justify-end">
-                                    <button onClick={() => setShowEditor(false)} className="px-4 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600">
+                                {/* Botones */}
+                                <div className="mt-4 flex gap-2 justify-end">
+                                    <button
+                                        onClick={() => setShowEditor(false)}
+                                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                                    >
                                         Cancelar
                                     </button>
-                                    <button onClick={() => { setEditedBodyImage(canvasRef.current?.toDataURL() || null); setShowEditor(false); }} className="px-4 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded hover:bg-gray-800 dark:hover:bg-gray-200">
-                                        Guardar
+                                    <button
+                                        onClick={saveMarker}
+                                        className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded hover:bg-gray-800 dark:hover:bg-gray-200"
+                                    >
+                                        Guardar marcador
                                     </button>
                                 </div>
                             </div>
@@ -548,4 +749,4 @@ function TattooOverlayGenerator() {
     );
 }
 
-export default TattooOverlayGenerator
+export default TattooOverlayGenerator;

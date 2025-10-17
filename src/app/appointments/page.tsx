@@ -15,13 +15,30 @@ import {
     Plus,
     Loader2,
     Wifi,
-    WifiOff
+    WifiOff,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 
 export default function Appointments() {
     const { data: session } = useSession();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('all');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [newAppointment, setNewAppointment] = useState({
+        title: 'Dragon Tattoo Session',
+        description: 'Full back dragon tattoo, first session',
+        startTime: '2025-11-01T10:00:00Z',
+        endTime: '2025-11-01T14:00:00Z',
+        status: 'PENDING' as AppointmentStatus,
+        deposit: 100,
+        totalPrice: 500,
+        notes: 'Client prefers afternoon sessions',
+        designImages: [] as string[]
+    });
+    const [draggedImages, setDraggedImages] = useState<File[]>([]);
 
     // Integrar WebSocket de appointments
     // TODO: Reemplazar con el tenantId real del usuario autenticado
@@ -148,15 +165,18 @@ export default function Appointments() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm">
+                        <button
+                            onClick={() => setIsCalendarModalOpen(true)}
+                            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm"
+                        >
                             <Calendar className="w-4 h-4" />
                             <span className="hidden sm:inline">Calendario</span>
                         </button>
-                        <button className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm">
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">Exportar</span>
-                        </button>
-                        <button className="px-3 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all flex items-center gap-2 text-sm font-medium shadow-lg">
+
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="px-3 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all flex items-center gap-2 text-sm font-medium shadow-lg"
+                        >
                             <Plus className="w-4 h-4" />
                             <span className="hidden sm:inline">Nueva</span>
                         </button>
@@ -176,7 +196,7 @@ export default function Appointments() {
                     </div>
                 )}
 
-                <div className="grid lg:grid-cols-12 gap-4">
+                <div className="">
                     {/* Main Content */}
                     <div className="lg:col-span-8 space-y-4">
                         {/* Stats */}
@@ -230,7 +250,7 @@ export default function Appointments() {
                                         ? 'Comienza creando tu primera cita o espera a que se sincronicen los datos.'
                                         : 'Esperando conexión con el servidor...'}
                                 </p>
-                                <button className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all flex items-center gap-2 text-sm font-medium shadow-lg mx-auto">
+                                <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all flex items-center gap-2 text-sm font-medium shadow-lg mx-auto">
                                     <Plus className="w-4 h-4" />
                                     <span>Nueva Cita</span>
                                 </button>
@@ -316,64 +336,330 @@ export default function Appointments() {
                             </div>
                         )}
                     </div>
+                </div>
 
-                    {/* Sidebar */}
-                    <div className="lg:col-span-4 space-y-4">
-                        {/* Quick Stats */}
-                        <div className="bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-lg p-4 shadow-lg">
-                            <h3 className="text-sm font-semibold text-white mb-3">Resumen Rápido</h3>
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between p-2 bg-white/10 backdrop-blur-sm rounded-lg">
-                                    <span className="text-xs text-white/90">Total citas</span>
-                                    <span className="text-sm font-bold text-white">{stats.total}</span>
+                {/* Calendar Modal */}
+                {isCalendarModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Calendario de Citas</h2>
+                                    <button
+                                        onClick={() => setIsCalendarModalOpen(false)}
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    >
+                                        <XCircle className="w-5 h-5 text-gray-500" />
+                                    </button>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-white/10 backdrop-blur-sm rounded-lg">
-                                    <span className="text-xs text-white/90">Completadas</span>
-                                    <span className="text-sm font-bold text-white">{stats.completed}</span>
+
+                                {/* Calendar Header */}
+                                <div className="flex items-center justify-between mb-4">
+                                    <button
+                                        onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        {currentDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+                                    </h3>
+                                    <button
+                                        onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-white/10 backdrop-blur-sm rounded-lg">
-                                    <span className="text-xs text-white/90">Tasa éxito</span>
-                                    <span className="text-sm font-bold text-white">
-                                        {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
-                                    </span>
+
+                                {/* Calendar Grid */}
+                                <div className="grid grid-cols-7 gap-1 mb-4">
+                                    {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
+                                        <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 dark:text-gray-400">
+                                            {day}
+                                        </div>
+                                    ))}
+
+                                    {(() => {
+                                        const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                                        const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+                                        const startDate = new Date(firstDay);
+                                        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+                                        const days = [];
+                                        const current = new Date(startDate);
+
+                                        while (current <= lastDay || days.length % 7 !== 0) {
+                                            const dayAppointments = appointments.filter(apt => {
+                                                const aptDate = new Date(apt.startTime);
+                                                return aptDate.toDateString() === current.toDateString();
+                                            });
+
+                                            days.push(
+                                                <div
+                                                    key={current.toISOString()}
+                                                    className={`min-h-[80px] p-2 border border-gray-200 dark:border-gray-700 rounded-lg ${
+                                                        current.getMonth() !== currentDate.getMonth()
+                                                            ? 'bg-gray-50 dark:bg-gray-900/50 text-gray-400'
+                                                            : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                    } transition-colors cursor-pointer`}
+                                                >
+                                                    <div className="text-sm font-medium mb-1">
+                                                        {current.getDate()}
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        {dayAppointments.slice(0, 2).map((apt, idx) => (
+                                                            <div
+                                                                key={apt.id}
+                                                                className={`text-xs p-1 rounded truncate ${
+                                                                    apt.status === 'CONFIRMED'
+                                                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                                                                        : apt.status === 'PENDING'
+                                                                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                                                }`}
+                                                            >
+                                                                {apt.title}
+                                                            </div>
+                                                        ))}
+                                                        {dayAppointments.length > 2 && (
+                                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                                +{dayAppointments.length - 2} más
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                            current.setDate(current.getDate() + 1);
+                                        }
+                                        return days;
+                                    })()}
+                                </div>
+
+                                {/* Legend */}
+                                <div className="flex items-center justify-center gap-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-emerald-100 dark:bg-emerald-900/30 rounded"></div>
+                                        <span className="text-xs text-gray-600 dark:text-gray-400">Confirmadas</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-amber-100 dark:bg-amber-900/30 rounded"></div>
+                                        <span className="text-xs text-gray-600 dark:text-gray-400">Pendientes</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-gray-100 dark:bg-gray-800 rounded"></div>
+                                        <span className="text-xs text-gray-600 dark:text-gray-400">Canceladas</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Connection Info */}
-                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Estado del Sistema</h3>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">WebSocket</span>
-                                    <span className={`text-xs font-medium ${isConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-500'}`}>
-                                        {isConnected ? 'Conectado' : 'Desconectado'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Sincronización</span>
-                                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                        Tiempo real
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Tenant ID</span>
-                                    <span className="text-xs font-mono text-gray-500 dark:text-gray-500 truncate max-w-[150px]">
-                                        {tenantId}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Help Card */}
-                        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
-                            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">💡 Actualizaciones en tiempo real</h3>
-                            <p className="text-xs text-blue-800 dark:text-blue-400 leading-relaxed">
-                                Las citas se actualizan automáticamente cuando hay cambios. No necesitas recargar la página.
-                            </p>
                         </div>
                     </div>
-                </div>
+                )}
+
+                {/* Modal for New Appointment */}
+                {isModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-scrollbar">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto no-scrollbar">
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nueva Cita</h2>
+                                    <button
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    >
+                                        <XCircle className="w-5 h-5 text-gray-500" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Título
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newAppointment.title}
+                                            onChange={(e) => setNewAppointment(prev => ({ ...prev, title: e.target.value }))}
+                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+                                            placeholder="Título de la cita"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Descripción
+                                        </label>
+                                        <textarea
+                                            value={newAppointment.description}
+                                            onChange={(e) => setNewAppointment(prev => ({ ...prev, description: e.target.value }))}
+                                            rows={3}
+                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white resize-none"
+                                            placeholder="Descripción detallada"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Fecha y Hora Inicio
+                                            </label>
+                                            <input
+                                                type="datetime-local"
+                                                value={newAppointment.startTime.slice(0, 16)}
+                                                onChange={(e) => setNewAppointment(prev => ({ ...prev, startTime: new Date(e.target.value).toISOString() }))}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Fecha y Hora Fin
+                                            </label>
+                                            <input
+                                                type="datetime-local"
+                                                value={newAppointment.endTime.slice(0, 16)}
+                                                onChange={(e) => setNewAppointment(prev => ({ ...prev, endTime: new Date(e.target.value).toISOString() }))}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Depósito (COP)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={newAppointment.deposit}
+                                                onChange={(e) => setNewAppointment(prev => ({ ...prev, deposit: Number(e.target.value) }))}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Precio Total (COP)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={newAppointment.totalPrice}
+                                                onChange={(e) => setNewAppointment(prev => ({ ...prev, totalPrice: Number(e.target.value) }))}
+                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Notas
+                                        </label>
+                                        <textarea
+                                            value={newAppointment.notes}
+                                            onChange={(e) => setNewAppointment(prev => ({ ...prev, notes: e.target.value }))}
+                                            rows={2}
+                                            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white resize-none"
+                                            placeholder="Notas adicionales"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Imágenes de Diseño
+                                        </label>
+                                        <div
+                                            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer"
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                            }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                const files = Array.from(e.dataTransfer.files);
+                                                setDraggedImages(prev => [...prev, ...files]);
+                                                // Convert files to URLs for preview
+                                                const urls = files.map(file => URL.createObjectURL(file));
+                                                setNewAppointment(prev => ({ ...prev, designImages: [...prev.designImages, ...urls] }));
+                                            }}
+                                        >
+                                            <input
+                                                type="file"
+                                                multiple
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    setDraggedImages(prev => [...prev, ...files]);
+                                                    const urls = files.map(file => URL.createObjectURL(file));
+                                                    setNewAppointment(prev => ({ ...prev, designImages: [...prev.designImages, ...urls] }));
+                                                }}
+                                                className="hidden"
+                                                id="image-upload"
+                                            />
+                                            <label htmlFor="image-upload" className="cursor-pointer">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                                        <Plus className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                            Arrastra imágenes aquí o haz clic para seleccionar
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                            PNG, JPG, GIF hasta 10MB cada una
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        {/* Preview of uploaded images */}
+                                        {newAppointment.designImages.length > 0 && (
+                                            <div className="grid grid-cols-3 gap-2 mt-4">
+                                                {newAppointment.designImages.map((img, idx) => (
+                                                    <div key={idx} className="relative group">
+                                                        <div className="aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                                                            <img src={img} alt="" className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                const newImages = newAppointment.designImages.filter((_, i) => i !== idx);
+                                                                setNewAppointment(prev => ({ ...prev, designImages: newImages }));
+                                                                setDraggedImages(prev => prev.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <XCircle className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <button
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // TODO: Implement create appointment logic
+                                            console.log('Creating appointment:', newAppointment);
+                                            setIsModalOpen(false);
+                                        }}
+                                        className="flex-1 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
+                                    >
+                                        Crear Cita
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -13,6 +13,9 @@
     "deploy:worker": "npm run build:worker && wrangler deploy"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
     "@opennextjs/cloudflare": "^1.11.0",
     "axios": "^1.12.2",
     "geist": "^1.5.1",
