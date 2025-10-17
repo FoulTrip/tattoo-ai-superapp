@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useImagePreview } from '@/hooks/useImagePreview';
-import { Upload, Pencil, X, Eraser, Download } from 'lucide-react';
+import { Upload, Pencil, X, Eraser, Download, Image, Dice6 } from 'lucide-react';
 import ImageUploadBox from './ImageUploadBox';
 
 function TattooOverlayGenerator() {
@@ -41,6 +41,8 @@ function TattooOverlayGenerator() {
     const [styles, setStyles] = useState<string[]>([]);
     const [colors, setColors] = useState<string[]>([]);
     const [description, setDescription] = useState<string>('');
+    const [isRandomMode, setIsRandomMode] = useState(false);
+    const [randomPrompt, setRandomPrompt] = useState<string>('');
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const bodyInputRef = useRef<HTMLInputElement>(null);
@@ -48,14 +50,15 @@ function TattooOverlayGenerator() {
 
     // Buscar cualquier job completado con resultado
     const completedJob = jobs.find(job => job.status === 'completed' && job.result);
+
     const displayImage = completedJob?.result
         ? (completedJob.result.imageUrl ||
             (completedJob.result.base64Image
-              ? `data:image/png;base64,${completedJob.result.base64Image}`
-              : null) ||
+                ? `data:image/png;base64,${completedJob.result.base64Image}`
+                : null) ||
             (typeof completedJob.result.result_url === 'string'
-              ? completedJob.result.result_url
-              : null))
+                ? completedJob.result.result_url
+                : null))
         : null;
 
     // Debug logs - remove after fixing
@@ -71,14 +74,14 @@ function TattooOverlayGenerator() {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            const img = new Image();
+            const img = document.createElement('img');
             img.onload = () => {
                 canvas.width = img.width;
                 canvas.height = img.height;
                 ctx.drawImage(img, 0, 0);
 
                 if (editedBodyImage) {
-                    const editedImg = new Image();
+                    const editedImg = document.createElement('img');
                     editedImg.onload = () => ctx.drawImage(editedImg, 0, 0);
                     editedImg.src = editedBodyImage;
                 }
@@ -149,7 +152,7 @@ function TattooOverlayGenerator() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const img = new Image();
+        const img = document.createElement('img');
         img.onload = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0);
@@ -205,12 +208,6 @@ function TattooOverlayGenerator() {
                     <div className="relative p-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-gray-400 dark:bg-gray-600'} ${isConnected ? 'animate-pulse' : ''}`}></div>
-                                    <span className={`text-xs font-medium uppercase tracking-wider ${isConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-500'}`}>
-                                        {isConnected ? 'Powered by AI' : 'Conectando...'}
-                                    </span>
-                                </div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
                                     Previsualiza tu tatuaje
                                 </h1>
@@ -246,13 +243,13 @@ function TattooOverlayGenerator() {
                     <>
                         {/* Description Section */}
                         <div className="mb-4">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">3. Descripción del tatuaje</label>
-                            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Descripción del tatuaje</label>
+                            <div className="">
                                 <textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Describe el tatuaje que quieres... (ej: Un dragón tribal minimalista en el brazo, con tonos azules y negros)"
-                                    className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+                                    className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
                                     rows={3}
                                 />
                             </div>
@@ -260,70 +257,69 @@ function TattooOverlayGenerator() {
 
                         {/* Styles and Colors Section */}
                         <div className="mb-4">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">4. Estilos y Colores</label>
-                            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Estilos:</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Ej: minimalista, geométrico..."
-                                            className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                    setStyles([...(styles || []), e.currentTarget.value.trim()]);
-                                                    e.currentTarget.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                            {styles.map((style, index) => (
-                                                <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
-                                                    {style}
-                                                    <button
-                                                        onClick={() => setStyles((styles || []).filter((_, i) => i !== index))}
-                                                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Estilos</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: minimalista, geométrico..."
+                                        className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                setStyles([...(styles || []), e.currentTarget.value.trim()]);
+                                                e.currentTarget.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                        {styles.map((style, index) => (
+                                            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
+                                                {style}
+                                                <button
+                                                    onClick={() => setStyles((styles || []).filter((_, i) => i !== index))}
+                                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
                                     </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Colores:</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Ej: negro, rojo..."
-                                            className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                    setColors([...(colors || []), e.currentTarget.value.trim()]);
-                                                    e.currentTarget.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                            {colors.map((color, index) => (
-                                                <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
-                                                    {color}
-                                                    <button
-                                                        onClick={() => setColors((colors || []).filter((_, i) => i !== index))}
-                                                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Colores</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: negro, rojo..."
+                                        className="w-full px-3 py-2 text-base bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                setColors([...(colors || []), e.currentTarget.value.trim()]);
+                                                e.currentTarget.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                        {colors.map((color, index) => (
+                                            <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded-full">
+                                                {color}
+                                                <button
+                                                    onClick={() => setColors((colors || []).filter((_, i) => i !== index))}
+                                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300 min-h-[400px]">
                             {/* Column 1: Body Image */}
-                            <div className="lg:col-span-1">
+                            <div className="lg:col-span-1 flex flex-col">
                                 <ImageUploadBox
                                     image={bodyImage}
                                     type="body"
@@ -337,71 +333,123 @@ function TattooOverlayGenerator() {
                             </div>
 
                             {/* Column 2: Tattoo Image */}
-                            <div className="lg:col-span-1">
-                                <ImageUploadBox
-                                    image={tattooImage}
-                                    type="tattoo"
-                                    label="2. Diseño del tatuaje"
-                                    bodyInputRef={bodyInputRef}
-                                    tattooInputRef={tattooInputRef}
-                                    editedBodyImage={editedBodyImage}
-                                    setShowEditor={setShowEditor}
-                                    handleImageUpload={handleImageUpload}
-                                />
+                            <div className="lg:col-span-1 flex flex-col">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">2. Diseño del tatuaje</label>
+                                    <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                                        <button
+                                            onClick={() => setIsRandomMode(false)}
+                                            className={`flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                                !isRandomMode
+                                                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                            }`}
+                                        >
+                                            <Image className="w-3 h-3" />
+                                            Subir
+                                        </button>
+                                        <button
+                                            onClick={() => setIsRandomMode(true)}
+                                            className={`flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                                                isRandomMode
+                                                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                            }`}
+                                        >
+                                            <Dice6 className="w-3 h-3" />
+                                            Aleatorio
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    {isRandomMode ? (
+                                        <div className="h-full flex flex-col gap-3">
+                                            <textarea
+                                                value={randomPrompt}
+                                                onChange={(e) => setRandomPrompt(e.target.value)}
+                                                placeholder="Describe cómo quieres que sea el diseño aleatorio... (ej: Un dragón tribal minimalista con tonos azules y negros)"
+                                                className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    // Aquí iría la lógica para generar el diseño aleatorio
+                                                    console.log('Generando diseño aleatorio con prompt:', randomPrompt);
+                                                }}
+                                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-sm text-white dark:text-gray-200 text-sm font-medium rounded-lg transition-all border border-gray-900 dark:border-white/10 hover:border-gray-700 dark:hover:border-white/20 shadow-lg"
+                                            >
+                                                <Dice6 className="w-4 h-4" />
+                                                Generar Diseño Aleatorio
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <ImageUploadBox
+                                            image={tattooImage}
+                                            type="tattoo"
+                                            label=""
+                                            bodyInputRef={bodyInputRef}
+                                            tattooInputRef={tattooInputRef}
+                                            editedBodyImage={editedBodyImage}
+                                            setShowEditor={setShowEditor}
+                                            handleImageUpload={handleImageUpload}
+                                        />
+                                    )}
+                                </div>
                             </div>
 
                             {/* Column 3: Result */}
-                            <div className="lg:col-span-1">
+                            <div className="lg:col-span-1 flex flex-col">
                                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">5. Resultado</label>
-                                {isProcessing && !displayImage ? (
-                                    <div className="aspect-square bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center p-6">
-                                        <div className="w-full max-w-xs">
-                                            {/* Spinner animado */}
-                                            <div className="flex justify-center mb-4">
-                                                <div className="w-12 h-12 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white rounded-full animate-spin"></div>
-                                            </div>
-
-                                            {/* Barra de progreso */}
-                                            {currentJob && currentJob.progress > 0 && (
-                                                <div className="mb-3">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-xs text-gray-600 dark:text-gray-400">Procesando</span>
-                                                        <span className="text-xs font-medium text-gray-900 dark:text-white">{currentJob.progress}%</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                                                        <div
-                                                            className="bg-gray-900 dark:bg-white h-full transition-all duration-300 ease-out"
-                                                            style={{ width: `${currentJob.progress}%` }}
-                                                        ></div>
-                                                    </div>
+                                <div className="flex-1">
+                                    {isProcessing && !displayImage ? (
+                                        <div className="h-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center p-6">
+                                            <div className="w-full max-w-xs">
+                                                {/* Spinner animado */}
+                                                <div className="flex justify-center mb-4">
+                                                    <div className="w-12 h-12 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white rounded-full animate-spin"></div>
                                                 </div>
-                                            )}
 
-                                            {/* Mensaje de estado */}
-                                            <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
-                                                {currentJob?.message || 'Procesando tu visualización...'}
-                                            </p>
+                                                {/* Barra de progreso */}
+                                                {currentJob && currentJob.progress > 0 && (
+                                                    <div className="mb-3">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs text-gray-600 dark:text-gray-400">Procesando</span>
+                                                            <span className="text-xs font-medium text-gray-900 dark:text-white">{currentJob.progress}%</span>
+                                                        </div>
+                                                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                            <div
+                                                                className="bg-gray-900 dark:bg-white h-full transition-all duration-300 ease-out"
+                                                                style={{ width: `${currentJob.progress}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Mensaje de estado */}
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                                                    {currentJob?.message || 'Procesando tu visualización...'}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : displayImage ? (
-                                    <div className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden aspect-square">
-                                        <div className="relative h-full">
-                                            <img src={displayImage} alt="Result" className="w-full h-full object-contain" />
-                                            <a
-                                                href={displayImage}
-                                                download="tattoo-visualization.png"
-                                                className="absolute top-2 right-2 flex items-center gap-1 px-3 py-1 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800"
-                                            >
-                                                <Download className="w-3 h-3" />
-                                                Descargar
-                                            </a>
+                                    ) : displayImage ? (
+                                        <div className="h-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                                            <div className="relative h-full">
+                                                <img src={displayImage} alt="Result" className="w-full h-full object-contain" />
+                                                <a
+                                                    href={displayImage}
+                                                    download="tattoo-visualization.png"
+                                                    className="absolute top-2 right-2 flex items-center gap-1 px-3 py-1 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800"
+                                                >
+                                                    <Download className="w-3 h-3" />
+                                                    Descargar
+                                                </a>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="aspect-square bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center">
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-4">El resultado aparecerá aquí</p>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <div className="h-full bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-4">El resultado aparecerá aquí</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

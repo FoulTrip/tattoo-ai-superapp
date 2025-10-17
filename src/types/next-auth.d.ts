@@ -14,14 +14,14 @@ declare module "next-auth" {
   }
 
   interface User extends DefaultUser {
-    userType: string;
+    userType: UserType;
     accessToken: string;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
-    userType: string;
+    userType: UserType;
     accessToken: string;
   }
 }

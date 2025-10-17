@@ -1,10 +1,10 @@
 "use client"
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, Users, AlertCircle } from 'lucide-react';
 import UseLogin from '@/hooks/UseLogin';
 
-export default function AuthComponent() {
+function AuthComponent() {
     const {
         isLogin,
         error,
@@ -206,5 +206,13 @@ export default function AuthComponent() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <AuthComponent />
+        </Suspense>
     );
 }

@@ -21,11 +21,11 @@ function ImageUploadBox({
 }) {
 
     return (
-        <div>
+        <div className="h-full flex flex-col">
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{label}</label>
             <div
                 onClick={() => !image && (type === 'body' ? bodyInputRef : tattooInputRef).current?.click()}
-                className="relative aspect-square bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-all"
+                className="relative flex-1 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-all"
             >
                 {image ? (
                     <>

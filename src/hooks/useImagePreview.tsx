@@ -36,7 +36,7 @@ interface UseImagePreviewReturn {
   error: Error | null;
 
   // Operaciones
-  processImages: (files: string[], styles: string[], colors: string[], description: string) => Promise<void>;
+  processImages: (files: string[], styles?: string[], colors?: string[], description?: string) => Promise<void>;
   cancelJob: (jobId: string) => void;
   clearHistory: () => void;
   getJobById: (jobId: string) => ProcessingJob | undefined;
@@ -220,9 +220,9 @@ export function useImagePreview({
         progress: 0,
         startedAt: new Date(),
         files,
-        styles,
-        colors,
-        description
+        styles: styles || [],
+        colors: colors || [],
+        description: description || ''
       };
 
       setJobs((prev) => [...prev, newJob]);

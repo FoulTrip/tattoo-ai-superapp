@@ -8,6 +8,9 @@ function UsePreviewTattoo() {
     const { data: session } = useSession();
     const [bodyImage, setBodyImage] = useState<string | null>(null);
     const [tattooImage, setTattooImage] = useState<string | null>(null);
+    const [styles, setStyles] = useState<string[] | undefined>(undefined);
+    const [colors, setColors] = useState<string[] | undefined>(undefined);
+    const [description, setDescription] = useState<string | undefined>(undefined);
     const [editedBodyImage, setEditedBodyImage] = useState<string | null>(null);
     const [showEditor, setShowEditor] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -167,7 +170,7 @@ function UsePreviewTattoo() {
                 : tattooImage;
 
             // Enviar a procesar
-            await processImages([cleanBodyImage, cleanTattooImage]);
+            await processImages([cleanBodyImage, cleanTattooImage], styles, colors, description);
 
             console.log('📤 Imágenes enviadas al servidor');
         } catch (error) {
